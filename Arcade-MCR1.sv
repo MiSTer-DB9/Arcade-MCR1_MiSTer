@@ -115,8 +115,6 @@ localparam CONF_STR = {
 	"O35,Scandoubler Fx,None,HQ2x,CRT 25%,CRT 50%,CRT 75%;",
 	"OUV,Serial SNAC DB9MD,Off,1 Player,2 Players;",	
 	"-;",
-	"h1O6,Move,Buttons,Spinner;",
-	"h1-;",
 	"DIP;",
 	"-;",
 	"R0,Reset;",
@@ -148,6 +146,8 @@ wire [15:0] audio_l, audio_r;
 wire [10:0] ps2_key;
 
 wire [31:0] joy1_USB, joy2_USB, joy3, joy4;
+
+wire  [8:0] sp1, sp2;
 
 wire [31:0] joy1 = |status[31:30] ? {	
 	joydb9md_1[8] | (joydb9md_1[7] & joydb9md_1[6]),// Mode | Stat + A -> Coin 
@@ -233,7 +233,11 @@ hps_io #(.STRLEN($size(CONF_STR)>>3)) hps_io
 	.joystick_3(joy4_USB),
 
 	.joy_raw({joydb9md_1[4],joydb9md_1[6],joydb9md_1[3:0]}),
-.ps2_key(ps2_key)
+	
+	.spinner_1(sp2), 
+	.spinner_1(sp2), 
+	
+	.ps2_key(ps2_key)
 );
 
 reg mod_kick     = 0;
@@ -354,6 +358,21 @@ wire m_fire_b  = m_fire1b | m_fire2b;
 //wire m_fire_d  = m_fire1d | m_fire2d;
 wire m_spccw   = m_spccw1 | m_spccw2;
 wire m_spcw    = m_spcw1  | m_spcw2;
+
+reg [8:0] sp;
+always @(posedge clk_sys) begin
+	reg [8:0] old_sp1, old_sp2;
+	reg       sp_sel = 0;
+
+	old_sp1 <= sp1;
+	old_sp2 <= sp2;
+	
+	if(old_sp1 != sp1) sp_sel <= 0;
+	if(old_sp2 != sp2) sp_sel <= 1;
+
+	sp <= sp_sel ? sp2 : sp1;
+end
+
 
 reg  [7:0] input_0;
 reg  [7:0] input_1;
@@ -491,7 +510,7 @@ assign AUDIO_R = { audio_r };
 assign AUDIO_S = 0;
 
 wire [3:0] spin_angle;
-spinner #(4,8) spinner
+spinner #(4,8,2) spinner
 (
 	.clk(clk_sys),
 	.reset(reset),
@@ -499,8 +518,8 @@ spinner #(4,8) spinner
 	.minus(m_left | m_spccw),
 	.plus(m_right | m_spcw),
 	.strobe(vs),
-	.use_spinner(status[6] | m_spccw | m_spcw),
-	.spin_angle(spin_angle)
+	.spin_in(sp),
+	.spin_out(spin_angle)
 );
 
 endmodule
