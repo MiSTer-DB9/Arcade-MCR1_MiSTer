@@ -234,7 +234,7 @@ hps_io #(.STRLEN($size(CONF_STR)>>3)) hps_io
 
 	.joy_raw({joydb9md_1[4],joydb9md_1[6],joydb9md_1[3:0]}),
 	
-	.spinner_1(sp2), 
+	.spinner_0(sp1), 
 	.spinner_1(sp2), 
 	
 	.ps2_key(ps2_key)
