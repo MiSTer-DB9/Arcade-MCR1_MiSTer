@@ -136,8 +136,8 @@ assign LED_POWER = 0;
 assign {FB_PAL_CLK, FB_FORCE_BLANK, FB_PAL_ADDR, FB_PAL_DOUT, FB_PAL_WR} = '0;
 
 wire [1:0] ar = status[17:16];
-assign VIDEO_ARX = (!ar) ? (status[2] ? 8'd4 : 8'd3) : (ar - 1'd1);
-assign VIDEO_ARY = (!ar) ? (status[2] ? 8'd3 : 8'd4) : 12'd0;
+assign VIDEO_ARX = (!ar) ? (status[2] ? 8'd21 : 8'd20) : (ar - 1'd1);
+assign VIDEO_ARY = (!ar) ? (status[2] ? 8'd20 : 8'd21) : 12'd0;
 
 `include "build_id.v" 
 localparam CONF_STR = {
@@ -145,7 +145,7 @@ localparam CONF_STR = {
 	"H0OGH,Aspect ratio,Original,Full Screen,[ARC1],[ARC2];",
 	"H0O2,Orientation,Vert,Horz;",
 	"O35,Scandoubler Fx,None,HQ2x,CRT 25%,CRT 50%,CRT 75%;",
-	"OD,Deinterlacer hi-res,Off,On;",
+	"D2OD,Deinterlacer Hi-Res,Off,On;",
 	"OUV,UserIO Joystick,Off,DB9MD,DB15 ;",
 	"OT,UserIO Players, 1 Player,2 Players;",	
 	"-;",
@@ -159,13 +159,14 @@ localparam CONF_STR = {
 
 ////////////////////   CLOCKS   ///////////////////
 
-wire clk_sys;
+wire clk_sys,clk_80M;
 
 pll pll
 (
 	.refclk(CLK_50M),
 	.rst(0),
-	.outclk_0(clk_sys) // 40M
+	.outclk_0(clk_sys), // 40M
+	.outclk_1(clk_80M)  // 80M
 );
 
 ///////////////////////////////////////////////////
@@ -237,7 +238,7 @@ hps_io #(.STRLEN($size(CONF_STR)>>3)) hps_io
 
 	.buttons(buttons),
 	.status(status),
-	.status_menumask({mod_kick,direct_video}),
+	.status_menumask({|status[5:3],mod_kick,direct_video}),
 	.forced_scandoubler(forced_scandoubler),
 	.gamma_bus(gamma_bus),
 	.direct_video(direct_video),
@@ -292,19 +293,19 @@ wire m_fire1a  = joy1[4];
 wire m_fire1b  = joy1[5];
 //wire m_fire1c  = joy1[6];
 //wire m_fire1d  = joy1[7];
-wire m_spccw1  =              joy1[30];
-wire m_spcw1   =              joy1[31];
+wire m_spccw1  = joy1[30];
+wire m_spcw1   = joy1[31];
 
-wire m_right2  =  joy2[0];
-wire m_left2   =  joy2[1];
+wire m_right2  = joy2[0];
+wire m_left2   = joy2[1];
 wire m_down2   = joy2[2];
 wire m_up2     = joy2[3];
 wire m_fire2a  = joy2[4];
 wire m_fire2b  =  joy2[5];
 //wire m_fire2c  =  joy2[6];
 //wire m_fire2d  =  joy2[7];
-wire m_spccw2  =              joy2[30];
-wire m_spcw2   =              joy2[31];
+wire m_spccw2  = joy2[30];
+wire m_spcw2   = joy2[31];
 
 wire m_right   = m_right1 | m_right2;
 wire m_left    = m_left1  | m_left2; 
@@ -417,8 +418,7 @@ mcr1 mcr1
 	.video_hs(hs),
 	.video_vs(vs),
 	.video_csync(cs),
-	.video_ce(ce_pix_old),
-	.tv15Khz_mode(~status[13]),
+	.tv15Khz_mode(~hires),
 	.separate_audio(1'b0),
 	.audio_out_l(audio_l),
 	.audio_out_r(audio_r),
@@ -439,30 +439,30 @@ mcr1 mcr1
 	.dl_data(ioctl_dout)
 );
 
-wire ce_pix_old;
 wire hs, vs, cs;
 wire hblank, vblank;
 wire HSync, VSync;
 wire [3:0] r,g,b;
-wire ce_pix;
 
 wire no_rotate = status[2] | direct_video;
 wire rotate_ccw = 0;
 screen_rotate screen_rotate (.*);
 
-always @(posedge clk_sys) begin
-        reg [2:0] div;
+wire hires = status[13] && !status[5:3];
 
-        div <= div + 1'd1;
-        ce_pix <= !div;
+reg  ce_pix;
+always @(posedge clk_80M) begin
+	reg [2:0] div;
+
+	div <= div + 1'd1;
+	ce_pix <= hires ? !div[1:0] : !div;
 end
-
 
 arcade_video #(512,9) arcade_video
 (
 	.*,
-	.ce_pix(status[13] ? ce_pix_old: ce_pix),
-	.clk_video(clk_sys),
+	.ce_pix(ce_pix),
+	.clk_video(clk_80M),
 	.RGB_in({r[3:1],g[3:1],b[3:1]}),
 	.HBlank(hblank),
 	.VBlank(vblank),
